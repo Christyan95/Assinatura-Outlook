@@ -39,7 +39,7 @@ export const companies: BrandConfig[] = [
         logo: "/assets/tivor-logo.png",
         background: "/assets/tivor-fundo.png",
         overlayColor: "bg-blue-950/80",
-        website: "www.tivor.com.br",
+        website: "www.tivor.agr.br",
         unidades: ["Uberaba - MG"],
         brandIcon: "LayoutDashboard"
     },
@@ -110,7 +110,7 @@ export const companies: BrandConfig[] = [
         logo: "/assets/jee-logo.png",
         background: "/assets/jee-fundo.png",
         overlayColor: "bg-black/90",
-        website: "www.jeecompany.com.br",
+        website: "www.jee.com.br",
         unidades: ["Uberaba - MG", "Uberaba CSC - MG"],
         brandIcon: "Building2"
     }
