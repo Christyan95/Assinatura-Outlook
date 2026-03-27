@@ -3,7 +3,7 @@
 # ASSINATURA OUTLOOK HUB
 **Portal de Autoatendimento para Gerenciamento e Padronização de Assinaturas Corporativas**
 
-[![Next.js 16](https://img.shields.io/badge/Next.js-16.1-black?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React 19](https://img.shields.io/badge/React-19.0-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -59,7 +59,7 @@ O sistema utiliza um modelo de **Renderização de Alta Fidelidade (Rich HTML)**
 │        Clipboard API (Rich Text) → Cópia Perfeita   │
 ├─────────────────────────────────────────────────────┤
 │                  CAMADA 5 — GOVERNANÇA              │
-│        Validação de Campo → Proteção de Extensão    │
+│        Validação de Campo + DOMPurify → Segurança   │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -70,7 +70,7 @@ O sistema utiliza um modelo de **Renderização de Alta Fidelidade (Rich HTML)**
 ## 🚀 Stack Tecnológica de Elite
 
 ### Frontend & Core
-- **Next.js 16 (App Router):** Roteamento dinâmico e performance extrema com Server-Side Rendering (SSR).
+- **Next.js 16.2** (App Router): Roteamento dinâmico e performance extrema com Server-Side Rendering (SSR).
 - **React 19:** Utilização de Hooks modernos e arquitetura componentizada para reatividade fluida.
 - **Tailwind CSS v4:** O novo padrão industrial para estilos atômicos e sistemas de design ultra-performáticos.
 - **Framer Motion:** Animações de micro-interação, transições de estado e efeitos de levitação nos cards.
@@ -83,6 +83,7 @@ O sistema utiliza um modelo de **Renderização de Alta Fidelidade (Rich HTML)**
 
 ### Engenharia de Software
 - **TypeScript Strict Mode:** Tipagem rigorosa em todo o fluxo de dados, eliminando erros em tempo de execução.
+- **DOMPurify 3.x:** Sanitização OWASP contra XSS e injeção de HTML.
 - **Multi-Tenant Engine:** Arquitetura que permite adicionar novas marcas em minutos apenas via arquivo de configuração.
 
 ---
@@ -91,10 +92,12 @@ O sistema utiliza um modelo de **Renderização de Alta Fidelidade (Rich HTML)**
 
 Segurança corporativa implementada em camadas técnicas:
 
-- **Sanitização de Input:** Todos os campos de texto possuem limites de caracteres e sanitização básica para prevenir injeções que poderiam quebrar o layout da assinatura.
+- **Sanitização de Input (DOMPurify):** Todos os campos de texto possuem sanitização para prevenir XSS e injeções que poderiam quebrar o layout da assinatura.
+- **Validação em 2 Camadas:** Validação de cliente + validação de negócio para garantir que apenas dados válidos sejam processados.
+- **Mascaramento Dinâmico:** Telefones formatados em tempo real com validação de DDD brasileiro (11-99).
 - **Asset Integrity:** Imagens servidas via caminhos absolutos e hospedagem otimizada para garantir que o logo nunca apareça como "bloqueado" ou "não encontrado".
-- **Validation Engine:** Mascaramento dinâmico para telefones e validação de nomes, garantindo que o colaborador siga o padrão da companhia.
 - **Isolation Routing:** Cada unidade de negócio opera em sua própria rota isolada, mas consome o mesmo kernel de geração de código.
+- **Audit & Compliance:** Estrutura pronta para rastreamento de assinaturas por usuário e histórico de eventos.
 
 ---
 
@@ -106,20 +109,29 @@ Arquitetura modular focada em escalabilidade e manutenção simplificada:
 Assinatura-Outlook-Hub/
 ├── src/
 │   ├── app/
-│   │   ├── [company]/page.tsx   # Rota Dinâmica Master (Otimizado)
-│   │   ├── layout.tsx           # Setup global (Theme, Fontes, SEO)
-│   │   ├── page.tsx             # Landing: Portal de Seleção de Marca
-│   │   └── globals.css          # Design System (Tailwind v4 Setup)
+│   │   ├── [company]/page.tsx      # Rota Dinâmica Master (Otimizado)
+│   │   ├── layout.tsx              # Setup global (Theme, Fontes, SEO)
+│   │   ├── page.tsx                # Landing: Portal de Seleção de Marca
+│   │   ├── globals.css             # Design System (Tailwind v4)
+│   │   └── not-found.tsx           # Fallback 404
 │   ├── components/
-│   │   ├── SignatureGenerator.tsx # Core: Motor de Renderização HTML
-│   │   ├── CompanyCard.tsx      # UI: Card interativo da home
-│   │   └── ThemeProvider.tsx    # Injector de tema (Next-Themes)
-│   └── config/
-│       └── companies.ts         # Central de Configuração das Marcas
-├── public/
-│   └── assets/                  # Logos, ícones e backgrounds de alta res
-├── next.config.ts               # Otimizações de headers e Next.js
-└── package.json                 # Core dependencies (Next 16, React 19)
+│   │   ├── SignatureGenerator.tsx  # Core: Motor de Renderização HTML
+│   │   ├── CompanyCard.tsx         # UI: Card interativo da home
+│   │   └── ThemeProvider.tsx       # Injector de tema (Next-Themes)
+│   ├── config/
+│   │   └── companies.ts            # Central de Configuração das Marcas
+│   ├── utils/
+│   │   ├── sanitizer.ts            # DOMPurify wrapper + máscaras
+│   │   ├── validation.ts           # Validadores de negócio
+│   │   ├── constants.ts            # Constantes globais
+│   │   └── classnames.ts           # cn() utility
+│   ├── types/
+│   │   └── index.ts                # Tipos TypeScript centralizados
+│   └── public/
+│       └── assets/                 # Logos, ícones e backgrounds
+├── next.config.ts                  # Otimizações de headers
+├── tsconfig.json                   # TypeScript strict mode
+└── package.json                    # Dependencies (Next 16, React 19)
 ```
 
 ---
@@ -161,6 +173,12 @@ npm install
 
 # Iniciar servidor local
 npm run dev
+
+# Verificar qualidade do código
+npm run lint
+
+# Build para produção
+npm run build
 ```
 
 ### Produção
@@ -169,7 +187,22 @@ npm run dev
 npm run build
 
 # Start do servidor de produção
-npm run start
+npm start
+
+# Verificar vulnerabilidades de segurança
+npm audit
+```
+
+### Deploy em Vercel (Recomendado)
+```bash
+npm i -g vercel
+vercel --prod
+```
+
+### Deploy em Docker
+```bash
+docker build -t assinatura-outlook .
+docker run -p 3000:3000 assinatura-outlook
 ```
 
 ---

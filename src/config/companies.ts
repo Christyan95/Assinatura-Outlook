@@ -40,7 +40,7 @@ export const companies: BrandConfig[] = [
         background: "/assets/tivor-fundo.png",
         overlayColor: "bg-blue-950/80",
         website: "www.tivor.agr.br",
-        unidades: ["Uberaba - MG"],
+        unidades: ["Centro de Soluções Corporativas - CSC"],
         brandIcon: "LayoutDashboard"
     },
     {
@@ -74,7 +74,7 @@ export const companies: BrandConfig[] = [
             "Bambuí - MG",
             "Conceição das Alagoas - MG",
             "Sacramento - MG",
-            "Uberaba CSC - MG"
+            "Centro de Soluções Corporativas - CSC"
         ],
         brandIcon: "Sprout"
     },
@@ -111,7 +111,7 @@ export const companies: BrandConfig[] = [
         background: "/assets/jee-fundo.png",
         overlayColor: "bg-black/90",
         website: "www.jee.com.br",
-        unidades: ["Uberaba - MG", "Uberaba CSC - MG"],
+        unidades: ["Centro de Soluções Corporativas - CSC"],
         brandIcon: "Building2"
     }
 ];

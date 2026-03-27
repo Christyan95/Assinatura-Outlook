@@ -3,13 +3,9 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import clsx from "clsx";
-import { twMerge } from "tailwind-merge";
-import { BrandConfig } from "@/config/companies";
-
-function cn(...inputs: (string | undefined | null | false)[]) {
-    return twMerge(clsx(inputs));
-}
+import cn from "@/utils/classnames";
+import type { BrandConfig } from "@/config/companies";
+import { CONSTANTS } from "@/utils/constants";
 
 interface CompanyCardProps {
     company: BrandConfig;
@@ -22,15 +18,15 @@ export function CompanyCard({ company, index }: CompanyCardProps) {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
-                duration: 0.6,
-                delay: index * 0.15,
+                duration: CONSTANTS.ANIMATION_DELAYS.FADE_DURATION,
+                delay: index * CONSTANTS.ANIMATION_DELAYS.CARD_STAGGER,
                 ease: [0.21, 0.47, 0.32, 0.98]
             }}
             className="h-full w-full"
         >
             <Link href={`/${company.slug}`} className="block h-full cursor-pointer group relative">
                 <motion.div
-                    whileHover={{ y: -5 }}
+                    whileHover={{ y: -CONSTANTS.ANIMATION_DELAYS.HOVER_Y_OFFSET }}
                     transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     className={cn(
                         "relative h-full w-full overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-white/70 dark:bg-[#111111]/80 shadow-[0_4px_30px_rgba(0,0,0,0.02)] backdrop-blur-xl p-8 transition-colors duration-500",

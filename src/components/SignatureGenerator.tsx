@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState, ReactNode } from "react";
-import { Copy, Settings, Check, LayoutDashboard, Leaf, Sprout, Building2 } from "lucide-react";
-import clsx from "clsx";
-import { BrandConfig } from "@/config/companies";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Copy, Settings, Check, AlertCircle, LayoutDashboard, Leaf, Sprout, Building2 } from "lucide-react";
+import cn from "@/utils/classnames";
+import { sanitizeName, sanitizePosition, formatPhone, sanitizePhone } from "@/utils/sanitizer";
+import { validateForm, ValidationResult } from "@/utils/validation";
+import { CONSTANTS } from "@/utils/constants";
+import type { BrandConfig } from "@/config/companies";
+import type { SignatureFormData, ToastState } from "@/types";
 
-const IconMap = {
+interface SignatureGeneratorProps {
+    config: BrandConfig;
+}
+
+const IconMap: Record<string, React.ComponentType<{ size: number }>> = {
     LayoutDashboard,
     Leaf,
     Sprout,
     Building2
 };
-
-interface SignatureGeneratorProps {
-    config: BrandConfig;
-}
 
 /**
  * SignatureGenerator - A centralized component to handle multi-tenant signature generation.
@@ -22,7 +26,7 @@ interface SignatureGeneratorProps {
  */
 export default function SignatureGenerator({ config }: SignatureGeneratorProps) {
     // Form State
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<SignatureFormData>({
         saudacao: "Atenciosamente,",
         nome: "",
         cargo: "",
@@ -32,7 +36,14 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
 
     const [copied, setCopied] = useState(false);
     const [baseUrl, setBaseUrl] = useState("");
+    const [formError, setFormError] = useState<ValidationResult | null>(null);
+    const [toastState, setToastState] = useState<ToastState>({
+        visible: false,
+        message: "",
+        type: "success"
+    });
     const signatureRef = useRef<HTMLDivElement>(null);
+    const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Get base URL for absolute image paths in signature
     useEffect(() => {
@@ -40,6 +51,15 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
             const origin = process.env.NEXT_PUBLIC_ASSET_URL || window.location.origin;
             setBaseUrl(origin);
         }
+    }, []);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (toastTimeoutRef.current) {
+                clearTimeout(toastTimeoutRef.current);
+            }
+        };
     }, []);
 
     // Initial default values for preview ONLY (not inputs)
@@ -50,65 +70,131 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
     };
 
     /**
-     * Handles phone masking for (XX) X XXXX-XXXX
+     * Handles phone input with proper masking
+     * Allows partial input while typing
      */
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let v = e.target.value.replace(/\D/g, "");
+    const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target.value;
+        const cleanDigits = sanitizePhone(input);
         
-        // Apply DDD
-        if (v.length > 0) {
-            v = v.replace(/^(\d{2})/, "($1) ");
+        if (!cleanDigits) {
+            setFormData(prev => ({ ...prev, celular: "" }));
+            return;
         }
 
-        // Apply hyphen based on length (11 digits = mobile, 10 = landline)
-        const rawDigits = e.target.value.replace(/\D/g, "");
-        if (rawDigits.length > 2) {
-            const body = rawDigits.substring(2);
-            if (body.length > 4) {
-                if (body.length <= 8) {
-                    // (XX) XXXX-XXXX
-                    v = v.substring(0, 5) + body.substring(0, 4) + "-" + body.substring(4, 8);
-                } else {
-                    // (XX) X XXXX-XXXX
-                    v = v.substring(0, 5) + body.substring(0, 1) + " " + body.substring(1, 5) + "-" + body.substring(5, 9);
-                }
-            }
+        // Try to format if we have enough digits (8-11), otherwise show raw
+        if (cleanDigits.length >= 8) {
+            const formatted = formatPhone(cleanDigits);
+            setFormData(prev => ({ 
+                ...prev, 
+                celular: formatted || cleanDigits
+            }));
+        } else {
+            // Show partial input as user types (less than 8 digits)
+            setFormData(prev => ({ 
+                ...prev, 
+                celular: cleanDigits
+            }));
         }
-        
-        setFormData(prev => ({ 
-            ...prev, 
-            celular: v.substring(0, 16) 
-        }));
+    }, []);
+
+    /**
+     * Handles name input with sanitization
+     */
+    const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = sanitizeName(e.target.value);
+        setFormData(prev => ({ ...prev, nome: sanitized }));
+        setFormError(null);
+    }, []);
+
+    /**
+     * Handles position input with sanitization
+     */
+    const handlePositionChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = sanitizePosition(e.target.value);
+        setFormData(prev => ({ ...prev, cargo: sanitized }));
+        setFormError(null);
+    }, []);
+
+    /**
+     * Validates form before copy
+     */
+    const validateAndShowError = (): boolean => {
+        const validation = validateForm(formData);
+        if (!validation.isValid) {
+            setFormError(validation);
+            showToast(validation.error || CONSTANTS.ERROR_MESSAGES.FORM_INCOMPLETE, "error");
+            return false;
+        }
+        setFormError(null);
+        return true;
     };
 
     /**
-     * Copy the rendered HTML signature to clipboard
-     * Using the Range/Selection method as it is consistently better for Outlook's 
-     * specific rich-text rendering engine.
+     * Shows toast notification
      */
-    const copyToClipboard = () => {
-        if (!signatureRef.current) return;
+    const showToast = useCallback((message: string, type: ToastState['type'] = 'success') => {
+        if (toastTimeoutRef.current) {
+            clearTimeout(toastTimeoutRef.current);
+        }
+
+        setToastState({
+            visible: true,
+            message,
+            type
+        });
+
+        toastTimeoutRef.current = setTimeout(() => {
+            setToastState(prev => ({ ...prev, visible: false }));
+        }, CONSTANTS.COPY_TOAST_DURATION);
+    }, []);
+
+    /**
+     * Copy the rendered HTML signature to clipboard
+     * Using Range/Selection API for better Outlook compatibility
+     */
+    const copyToClipboard = useCallback(async () => {
+        if (!validateAndShowError()) {
+            return;
+        }
+
+        if (!signatureRef.current) {
+            showToast(CONSTANTS.ERROR_MESSAGES.COPY_ERROR, "error");
+            return;
+        }
 
         try {
             const range = document.createRange();
             range.selectNodeContents(signatureRef.current);
             const selection = window.getSelection();
-            if (selection) {
-                selection.removeAllRanges();
-                selection.addRange(range);
-                document.execCommand("copy");
-                selection.removeAllRanges();
+
+            if (!selection) {
+                throw new Error('Selection API not available');
+            }
+
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            const successful = document.execCommand("copy");
+            selection.removeAllRanges();
+
+            if (successful) {
                 setCopied(true);
-                setTimeout(() => setCopied(false), 3000);
+                showToast(CONSTANTS.TOAST_MESSAGES.COPY_SUCCESS);
+                
+                setTimeout(() => setCopied(false), CONSTANTS.COPY_TOAST_DURATION);
+            } else {
+                throw new Error('execCommand failed');
             }
         } catch (err) {
             console.error("Erro ao copiar assinatura:", err);
+            showToast(CONSTANTS.ERROR_MESSAGES.COPY_ERROR, "error");
         }
-    };
+    }, [formData, showToast]);
 
-    const updateField = (field: keyof typeof formData, value: string) => {
+    const updateField = useCallback((field: keyof SignatureFormData, value: string) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-    };
+    }, []);
 
     return (
         <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center p-4 relative font-sans text-white overflow-x-hidden">
@@ -118,7 +204,7 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                     className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700" 
                     style={{ backgroundImage: `url('${config.background}')` }}
                 />
-                <div className={clsx("absolute inset-0 backdrop-blur-[4px] transition-colors duration-700", config.overlayColor)} />
+                <div className={cn("absolute inset-0 backdrop-blur-[4px] transition-colors duration-700", config.overlayColor)} />
             </div>
 
             <main className="relative z-10 w-full max-w-[1000px] grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8 items-start lg:items-center py-10">
@@ -127,29 +213,37 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                 <div className="bg-black/30 backdrop-blur-3xl border border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col gap-4 ring-1 ring-white/10 animate-fade-in">
                     <div className="text-center pb-3 border-b border-white/10 mb-2">
                         {(() => {
-                            const Icon = IconMap[config.brandIcon];
+                            const Icon = IconMap[config.brandIcon as keyof typeof IconMap];
                             return (
-                                <h1 className={clsx("text-xl font-bold flex items-center justify-center gap-2 drop-shadow-md", config.textColor)}>
-                                    <Icon size={24} /> Gerador de Assinaturas
+                                <h1 className={cn("text-xl font-bold flex items-center justify-center gap-2 drop-shadow-md", config.textColor)}>
+                                    {Icon && <Icon size={24} />} Gerador de Assinaturas
                                 </h1>
                             );
                         })()}
-                        <p className={clsx("mt-1 text-[10px] font-medium opacity-80 uppercase tracking-[0.2em]", config.accentColor)}>
+                        <p className={cn("mt-1 text-[10px] font-medium opacity-80 uppercase tracking-[0.2em]", config.accentColor)}>
                             {config.name}
                         </p>
                     </div>
 
+                    {/* Error Display */}
+                    {formError && formError.error && (
+                        <div className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-100 text-xs">
+                            <AlertCircle size={16} className="flex-shrink-0" />
+                            <span>{formError.error}</span>
+                        </div>
+                    )}
+
                     <div className="space-y-4">
                         <InputField 
                             label="Saudação Inicial" 
-                            accentColor={config.accentColor} 
-                            themeColor={config.themeColor}
+                            accentColor={config.accentColor}
                         >
                             <select
                                 value={formData.saudacao}
                                 onChange={(e) => updateField("saudacao", e.target.value)}
                                 className="w-full p-3 bg-black/40 border border-white/10 rounded-xl text-sm outline-none focus:ring-1 transition-all text-white appearance-none [color-scheme:dark]"
                                 style={{ borderColor: `${config.themeColor}40` }}
+                                aria-label="Saudação inicial"
                             >
                                 <option value="Atenciosamente," className="bg-zinc-900 text-white">Atenciosamente,</option>
                                 <option value="Cordialmente," className="bg-zinc-900 text-white">Cordialmente,</option>
@@ -158,34 +252,47 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                             </select>
                         </InputField>
 
-                        <InputField label="Nome Completo" accentColor={config.accentColor} themeColor={config.themeColor}>
+                        <InputField label="Nome Completo *" accentColor={config.accentColor}>
                             <input
                                 type="text"
                                 value={formData.nome}
-                                onChange={(e) => updateField("nome", e.target.value.substring(0, 50))}
+                                onChange={handleNameChange}
                                 placeholder="Ex: Ana Souza"
-                                className="w-full p-3 bg-black/20 border border-white/10 rounded-xl text-sm outline-none transition-all text-white placeholder:text-white/20"
-                                style={{ borderColor: `${config.themeColor}40` }}
+                                className={cn(
+                                    "w-full p-3 bg-black/20 border rounded-xl text-sm outline-none transition-all text-white placeholder:text-white/20",
+                                    formError?.error ? "border-red-500/50" : "border-white/10"
+                                )}
+                                style={{ borderColor: formError?.error ? undefined : `${config.themeColor}40` }}
+                                aria-label="Nome completo"
+                                maxLength={CONSTANTS.INPUT_CONSTRAINTS.NOME_MAX}
+                                required
                             />
                         </InputField>
 
-                        <InputField label="Cargo / Função" accentColor={config.accentColor} themeColor={config.themeColor}>
+                        <InputField label="Cargo / Função *" accentColor={config.accentColor}>
                             <input
                                 type="text"
                                 value={formData.cargo}
-                                onChange={(e) => updateField("cargo", e.target.value.substring(0, 60))}
+                                onChange={handlePositionChange}
                                 placeholder="Ex: Executivo Comercial"
-                                className="w-full p-3 bg-black/20 border border-white/10 rounded-xl text-sm outline-none transition-all text-white placeholder:text-white/20"
-                                style={{ borderColor: `${config.themeColor}40` }}
+                                className={cn(
+                                    "w-full p-3 bg-black/20 border rounded-xl text-sm outline-none transition-all text-white placeholder:text-white/20",
+                                    formError?.error ? "border-red-500/50" : "border-white/10"
+                                )}
+                                style={{ borderColor: formError?.error ? undefined : `${config.themeColor}40` }}
+                                aria-label="Cargo ou função"
+                                maxLength={CONSTANTS.INPUT_CONSTRAINTS.CARGO_MAX}
+                                required
                             />
                         </InputField>
 
-                        <InputField label="Unidade / Setor" accentColor={config.accentColor} themeColor={config.themeColor}>
+                        <InputField label="Unidade / Setor" accentColor={config.accentColor}>
                             <select
                                 value={formData.unidade}
                                 onChange={(e) => updateField("unidade", e.target.value)}
                                 className="w-full p-3 bg-black/40 border border-white/10 rounded-xl text-sm outline-none transition-all text-white [color-scheme:dark]"
                                 style={{ borderColor: `${config.themeColor}40` }}
+                                aria-label="Unidade ou setor"
                             >
                                 <option value="" className="bg-zinc-900 text-white">-- Opcional --</option>
                                 {config.unidades.map(u => (
@@ -194,33 +301,39 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                             </select>
                         </InputField>
 
-                        <InputField label="WhatsApp / Celular" accentColor={config.accentColor} themeColor={config.themeColor}>
+                        <InputField label="WhatsApp / Celular" accentColor={config.accentColor}>
                             <input
-                                type="text"
+                                type="tel"
                                 value={formData.celular}
                                 onChange={handlePhoneChange}
                                 placeholder="(00) 0 0000-0000"
                                 className="w-full p-3 bg-black/20 border border-white/10 rounded-xl text-sm outline-none transition-all text-white placeholder:text-white/20"
-                                maxLength={16}
-                                style={{ borderColor: `${config.themeColor}40` }}
+                                maxLength={CONSTANTS.INPUT_CONSTRAINTS.CELULAR_MAX}
+                                aria-label="Telefone ou WhatsApp"
                             />
                         </InputField>
                     </div>
 
                     <button
                         onClick={copyToClipboard}
-                        className="mt-4 w-full flex items-center justify-center gap-2 p-4 rounded-2xl text-white font-bold uppercase tracking-wide text-xs shadow-lg active:scale-95 transition-all hover:brightness-110"
+                        disabled={copied}
+                        className={cn(
+                            "mt-4 w-full flex items-center justify-center gap-2 p-4 rounded-2xl text-white font-bold uppercase tracking-wide text-xs shadow-lg active:scale-95 transition-all hover:brightness-110 disabled:opacity-75",
+                            copied && "cursor-default"
+                        )}
                         style={{ backgroundColor: config.themeColor }}
+                        aria-label={copied ? "Assinatura copiada" : "Copiar assinatura para clipboard"}
                     >
                         {copied ? <Check size={18} /> : <Copy size={18} />}
                         {copied ? "Copiado!" : "Copiar Assinatura"}
                     </button>
 
                     <a
-                        href="https://outlook.office.com/mail/options/accounts-category/signatures-subcategory"
+                        href={CONSTANTS.OUTLOOK_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-1 w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-wide text-xs hover:-translate-y-[1px] transition-all"
+                        aria-label="Configurar assinatura no Outlook"
                     >
                         <Settings size={18} />
                         Configurar no Outlook
@@ -239,22 +352,22 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                         <div ref={signatureRef} className="relative z-10">
                             {/* --- HTML SIGNATURE START --- */}
                             {formData.saudacao && (
-                                <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: "14px", color: "#666", marginBottom: "16px" }}>
+                                <div style={{ fontFamily: CONSTANTS.SIGNATURE.FONT_FAMILY, fontSize: "14px", color: "#666", marginBottom: "16px" }}>
                                     {formData.saudacao}
                                 </div>
                             )}
-                            <table cellPadding="0" cellSpacing="0" style={{ fontFamily: "'Segoe UI', Arial, sans-serif", color: "#333", lineHeight: "1.2", border: "0" }}>
+                            <table cellPadding="0" cellSpacing="0" style={{ fontFamily: CONSTANTS.SIGNATURE.FONT_FAMILY, color: "#333", lineHeight: `${CONSTANTS.SIGNATURE.DEFAULT_LINE_HEIGHT}`, border: "0" }}>
                                 <tbody>
                                     <tr>
                                         <td valign="middle" style={{ paddingRight: "25px", borderRight: `2px solid ${config.signatureLineColor}`, textAlign: "center" }}>
                                             <img
                                                 src={`${baseUrl}${config.logo}`}
-                                                width="120"
-                                                style={{ display: "block", width: "120px", margin: "0 auto" }}
+                                                width={CONSTANTS.SIGNATURE.LOGO_WIDTH}
+                                                style={{ display: "block", width: `${CONSTANTS.SIGNATURE.LOGO_WIDTH}px`, margin: "0 auto" }}
                                                 alt={`${config.name} Logo`}
                                             />
                                             <div style={{ marginTop: "12px" }}>
-                                                <a href={`http://${config.website}`} target="_blank" rel="noopener noreferrer" style={{ color: config.themeColor, textDecoration: "none", fontSize: "12px", fontWeight: "bold", letterSpacing: "0.5px" }}>
+                                                <a href={`${CONSTANTS.OUTLOOK_PROTOCOL}${config.website}`} target="_blank" rel="noopener noreferrer" style={{ color: config.themeColor, textDecoration: "none", fontSize: "12px", fontWeight: "bold", letterSpacing: "0.5px" }}>
                                                     {config.website}
                                                 </a>
                                             </div>
@@ -262,7 +375,7 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
 
                                         <td valign="middle" style={{ paddingLeft: "25px" }}>
                                             <div style={{ fontSize: "24px", fontWeight: "800", color: config.signatureTitleColor, letterSpacing: "-0.5px", textTransform: "uppercase" }}>
-                                                {formData.nome || defaults.nome}
+                                                {(formData.nome || defaults.nome).toUpperCase()}
                                             </div>
 
                                             <table cellPadding="0" cellSpacing="0" style={{ marginTop: "8px", marginBottom: "12px", border: "0" }}>
@@ -296,13 +409,19 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
             </main>
 
             {/* Toast Notification */}
-            <div className={clsx(
+            <div className={cn(
                 "fixed bottom-8 left-1/2 -translate-x-1/2 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 shadow-2xl border transition-all duration-500 z-50",
-                copied ? "opacity-100 translate-y-0" : "opacity-0 translate-y-20 pointer-events-none"
+                toastState.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-20 pointer-events-none"
             )}
-            style={{ backgroundColor: `${config.themeColor}E6`, borderColor: `${config.themeColor}66` }}
+            style={{ 
+                backgroundColor: toastState.type === "error" ? "rgba(239, 68, 68, 0.9)" : `${config.themeColor}E6`, 
+                borderColor: toastState.type === "error" ? "rgba(239, 68, 68, 0.4)" : `${config.themeColor}66` 
+            }}
+            role="status"
+            aria-live="polite"
             >
-                ✅ Assinatura copiada com sucesso!
+                {toastState.type === "error" ? <AlertCircle size={16} /> : "✅"}
+                {" "}{toastState.message}
             </div>
         </div>
     );
@@ -311,10 +430,14 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
 /**
  * Helper component for labeled input fields
  */
-function InputField({ label, accentColor, themeColor, children }: { label: string, accentColor: string, themeColor: string, children: ReactNode }) {
+function InputField({ label, accentColor, children }: { 
+    label: string; 
+    accentColor: string; 
+    children: React.ReactNode 
+}) {
     return (
         <div className="flex flex-col gap-1.5 group">
-            <label className={clsx("text-[10px] uppercase font-bold tracking-wider opacity-60 group-focus-within:opacity-100 transition-opacity", accentColor)}>
+            <label className={cn("text-[10px] uppercase font-bold tracking-wider opacity-60 group-focus-within:opacity-100 transition-opacity", accentColor)}>
                 {label}
             </label>
             {children}
