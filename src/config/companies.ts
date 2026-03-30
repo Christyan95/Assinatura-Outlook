@@ -1,25 +1,33 @@
+import { z } from 'zod';
+
 /**
- * Interface definition for Brand Configuration
+ * Validação Padrão Ouro (Zod Schema) para a configuração de marcas corporativas.
+ * Isso garante proteção contra vazamento de atributos, injeções, erros de schema (no caso da lista advir de API).
+ */
+export const BrandConfigSchema = z.object({
+  id: z.string().min(1, "ID é obrigatório"),
+  name: z.string().min(2, "Nome deve possuir pelo menos 2 caracteres"),
+  slug: z.string().regex(/^[a-z0-9-]+$/, "Slug deve ser kebab-case, seguro para URL"),
+  description: z.string(),
+  themeColor: z.string().regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, "Cor de tema deve ser Hexadecimal"),
+  textColor: z.string(),
+  accentColor: z.string(),
+  signatureLineColor: z.string(),
+  signatureBgColor: z.string(),
+  signatureTitleColor: z.string(),
+  logo: z.string().startsWith("/", "Logo deve ser um caminho absoluto interno"),
+  background: z.string(),
+  overlayColor: z.string(),
+  website: z.string().url("Website deve ser uma URL válida").or(z.string().regex(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Domínio inválido")),
+  unidades: z.array(z.string()),
+  brandIcon: z.enum(["LayoutDashboard", "Sprout", "Leaf", "Building2"]),
+});
+
+/**
+ * Interface definition inferida via Zod (Proteção Avançada Estrita).
  * Must be a plain object (serializable) for RSC to Client handoff.
  */
-export interface BrandConfig {
-    id: string;
-    name: string;
-    slug: string;
-    description: string;
-    themeColor: string;      // Main brand color
-    textColor: string;       // Text highlights (Tailwind class)
-    accentColor: string;     // Accents/borders (Tailwind class)
-    signatureLineColor: string; // Vertical line in HTML
-    signatureBgColor: string;   // Badge background in HTML
-    signatureTitleColor: string; // Name color in HTML
-    logo: string;            // Absolute path in /public
-    background: string;      // Absolute path in /public
-    overlayColor: string;    // Tailwind overlay color
-    website: string;         // Digital presence
-    unidades: string[];      // Business units
-    brandIcon: "LayoutDashboard" | "Sprout" | "Leaf" | "Building2"; // Icon identifier
-}
+export type BrandConfig = z.infer<typeof BrandConfigSchema>;
 
 /**
  * Centralized list of supported companies
@@ -109,7 +117,7 @@ export const companies: BrandConfig[] = [
         signatureTitleColor: "#000000",
         logo: "/assets/jee-logo.png",
         background: "/assets/jee-fundo.png",
-        overlayColor: "bg-black/90",
+        overlayColor: "bg-black/75",
         website: "www.jee.com.br",
         unidades: ["Centro de Soluções Corporativas - CSC"],
         brandIcon: "Building2"
