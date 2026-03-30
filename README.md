@@ -207,6 +207,6 @@ docker run -p 3000:3000 assinatura-outlook
 
 ---
 
-## 📄 Licença
+## 👤 Autor & Arquiteto
 
-Projeto corporativo privado — © 2026 **Jee Invest BR**. Todos os direitos reservados.
+**Christyan Silva**
