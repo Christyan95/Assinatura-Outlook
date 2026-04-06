@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false, // Remoção de assinaturas tecnológicas Server
   compress: true, // Compressão otimizada
   async headers() {
+    const isDev = process.env.NODE_ENV !== 'production';
+    const cspScriptSrc = isDev
+      ? "script-src 'self' 'unsafe-eval' 'unsafe-inline';"
+      : "script-src 'self' 'unsafe-inline';";
+
     return [
       {
         source: '/(.*)',
@@ -36,8 +41,8 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            // Política restritiva de segurança Padrão Ouro - ajustável conforme liberação de origens e recursos de terceiros
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; upgrade-insecure-requests; block-all-mixed-content;",
+            // Política de segurança Dinâmica (Tags inseguras reativadas isoladamente no ambiente dev para Turbopack e Localhost)
+            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; block-all-mixed-content;`,
           },
           {
             key: 'Cross-Origin-Opener-Policy',
@@ -45,7 +50,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Cross-Origin-Resource-Policy',
-            value: 'same-origin',
+            value: 'cross-origin', // Liberado para que os logos renderizem corretamente nos webmails (Outlook/Gmail)
           },
         ],
       },

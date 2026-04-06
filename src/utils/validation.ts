@@ -81,21 +81,35 @@ export const validatePhone = (phone: string): ValidationResult => {
 
   const cleanDigits = sanitizePhone(phone);
 
-  if (!cleanDigits) {
+  if (cleanDigits.length < 10 || cleanDigits.length > 11) {
     return {
       isValid: false,
-      error: 'Telefone deve ter 10 ou 11 dígitos',
+      error: 'Telefone deve ter exatos 10 (Fixo) ou 11 (Celular) dígitos',
     };
   }
 
   // Validate Brazilian DDD (area code)
   const ddd = parseInt(cleanDigits.substring(0, 2), 10);
-
-  // Brazilian DDDs range from 11 to 99 typically
   if (ddd < 11 || ddd > 99) {
     return {
       isValid: false,
       error: 'DDD de telefone inválido',
+    };
+  }
+
+  // Se for celular (11 dígitos), o terceiro dígito (nono dígito) tem que ser 9
+  if (cleanDigits.length === 11 && cleanDigits[2] !== '9') {
+    return {
+      isValid: false,
+      error: 'Celular deve obrigatoriamente iniciar com o dígito 9 após o DDD',
+    };
+  }
+
+  // Verifica sequências repetidas inválidas
+  if (/^(\d)\1+$/.test(cleanDigits)) {
+    return {
+      isValid: false,
+      error: 'Número de telefone inválido (sequência repetida)',
     };
   }
 

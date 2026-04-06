@@ -22,11 +22,8 @@ export const sanitizeText = (input: string, maxLength: number): string => {
     KEEP_CONTENT: true,
   });
 
-  // Remove leading/trailing whitespace
-  const trimmed = cleaned.trim();
-
   // Enforce max length
-  return trimmed.substring(0, maxLength);
+  return cleaned.substring(0, maxLength);
 };
 
 /**
@@ -42,7 +39,7 @@ export const sanitizeName = (input: string): string => {
 
   if (!nameRegex.test(sanitized)) {
     // Remove invalid characters but keep content
-    return sanitized.replace(/[^a-zA-ZÀ-ÿ0-9\s\-']/g, '').trim();
+    return sanitized.replace(/[^a-zA-ZÀ-ÿ0-9\s\-']/g, '');
   }
 
   return sanitized;

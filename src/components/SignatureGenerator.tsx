@@ -252,7 +252,12 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                             </select>
                         </InputField>
 
-                        <InputField label="Nome Completo *" accentColor={config.accentColor}>
+                        <InputField 
+                            label="Nome Completo *" 
+                            accentColor={config.accentColor}
+                            currentLength={formData.nome.length}
+                            maxLength={CONSTANTS.INPUT_CONSTRAINTS.NOME_MAX}
+                        >
                             <input
                                 type="text"
                                 value={formData.nome}
@@ -269,7 +274,12 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                             />
                         </InputField>
 
-                        <InputField label="Cargo / Função *" accentColor={config.accentColor}>
+                        <InputField 
+                            label="Cargo / Função *" 
+                            accentColor={config.accentColor}
+                            currentLength={formData.cargo.length}
+                            maxLength={CONSTANTS.INPUT_CONSTRAINTS.CARGO_MAX}
+                        >
                             <input
                                 type="text"
                                 value={formData.cargo}
@@ -301,7 +311,12 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
                             </select>
                         </InputField>
 
-                        <InputField label="WhatsApp / Celular" accentColor={config.accentColor}>
+                        <InputField 
+                            label="WhatsApp / Celular" 
+                            accentColor={config.accentColor}
+                            currentLength={formData.celular.length}
+                            maxLength={CONSTANTS.INPUT_CONSTRAINTS.CELULAR_MAX}
+                        >
                             <input
                                 type="tel"
                                 value={formData.celular}
@@ -430,16 +445,25 @@ export default function SignatureGenerator({ config }: SignatureGeneratorProps) 
 /**
  * Helper component for labeled input fields
  */
-function InputField({ label, accentColor, children }: { 
+function InputField({ label, accentColor, currentLength, maxLength, children }: { 
     label: string; 
     accentColor: string; 
+    currentLength?: number;
+    maxLength?: number;
     children: React.ReactNode 
 }) {
     return (
         <div className="flex flex-col gap-1.5 group">
-            <label className={cn("text-[10px] uppercase font-bold tracking-wider opacity-60 group-focus-within:opacity-100 transition-opacity", accentColor)}>
-                {label}
-            </label>
+            <div className="flex justify-between items-end">
+                <label className={cn("text-[10px] uppercase font-bold tracking-wider opacity-60 group-focus-within:opacity-100 transition-opacity", accentColor)}>
+                    {label}
+                </label>
+                {maxLength !== undefined && currentLength !== undefined && (
+                    <span className="text-[9px] font-mono text-white/40 group-focus-within:text-white/70 transition-colors">
+                        {currentLength} / {maxLength}
+                    </span>
+                )}
+            </div>
             {children}
         </div>
     );
